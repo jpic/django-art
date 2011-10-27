@@ -17,4 +17,12 @@ setup(
         "Operating System :: OS Independent",
         "Topic :: Software Development"
     ],
+    requires=[
+        'django-mptt>=0.5',
+    ],
+    extras_require={
+        'translation': [
+            'django-modeltranslation',
+        ]
+    }
 )
