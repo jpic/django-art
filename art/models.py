@@ -1,6 +1,8 @@
 from django.db import models
 from django.utils.translation import ugettext as _
+from django.db.models import signals
 
+from orderable.models import OrderableModel
 from mptt.models import MPTTModel, TreeForeignKey
 
 class Artwork(models.Model):
@@ -11,10 +13,10 @@ class Artwork(models.Model):
     
     domains = models.ManyToManyField('Domain', null=True, blank=True)
     
-    designation = models.CharField(max_length=100)
+    name = models.CharField(max_length=100)
     denomination = models.ForeignKey('Denomination', null=True, blank=True)
-    author = models.ForeignKey('Author', null=True, blank=True)
-    author_details = models.TextField(null=True, blank=True)
+    artist = models.ForeignKey('Artist', null=True, blank=True)
+    artist_details = models.TextField(null=True, blank=True)
     school = models.ForeignKey('School', null=True, blank=True)
     previous_attributions = models.TextField(null=True, blank=True)
     period = models.ForeignKey('Period', null=True, blank=True)
@@ -27,7 +29,7 @@ class Artwork(models.Model):
         related_name='original_period_of_oeuvres')
     material_techniques = models.ManyToManyField('MaterialTechnique', null=True, blank=True)
     dimensions = models.CharField(max_length=100, null=True, blank=True)
-    inscriptions = models.ManyToManyField('InscriptionType', null=True, blank=True)
+    inscription_types = models.ManyToManyField('InscriptionType', null=True, blank=True)
     inscriptions_details = models.TextField(null=True, blank=True)
     onomastic = models.CharField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
@@ -78,179 +80,136 @@ class Artwork(models.Model):
     photograph = models.TextField(null=True, blank=True)
     editor = models.TextField(null=True, blank=True)
     copyright = models.TextField(null=True, blank=True)
-    
-    # accounting
-    estimation = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    purchase_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    sale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
-    # landings
-    landed_by = models.CharField(max_length=100, null=True, blank=True)
-    return_date = models.DateField(null=True, blank=True)
+    # site
+    public = models.BooleanField(verbose_name=_(u'published on the website'))
+
+    creation_datetime = models.DateTimeField(auto_now_add=True)
+    modification_datetime = models.DateTimeField(auto_now=True)
+
+    @property
+    def first_image(self):
+        try:
+            return self.image_set.all()[0]
+        except Image.DoesNotExist:
+            return None
 
     def __unicode__(self):
-        return self.designation
+        return self.name
     
     class Meta:
-        ordering = ('designation',)
+        ordering = ('name',)
 
-class Audio(models.Model):
+class Audio(OrderableModel):
     artwork = models.ForeignKey('Artwork')
     media = models.FileField(upload_to='artwork_audio')
 
-class Image(models.Model):
+class Image(OrderableModel):
     artwork = models.ForeignKey('Artwork')
-    media = models.ImageField(upload_to='artwork_audio')
+    media = models.ImageField(upload_to='artwork_image')
 
-class Video(models.Model):
+class Video(OrderableModel):
     artwork = models.ForeignKey('Artwork')
     media_url = models.URLField(null=True, blank=True)
 
-class Author(models.Model):
+class Artist(models.Model):
+    last_name = models.CharField(max_length=250, null=True, blank=True)
+    first_name = models.CharField(max_length=250, null=True, blank=True)
+    name = models.CharField(max_length=250, null=True, blank=True, 
+        verbose_name='artist name')
+    group = models.CharField(max_length=250, null=True, blank=True)
+    entitled = models.CharField(max_length=250, null=True, blank=True)
+    
+    nationality = models.ForeignKey('cities.Country', null=True, blank=True)
+    birth_date = models.DateField(null=True, blank=True, 
+        help_text=_(u'Please enter date as YEAR-MM-DD (ie. 1872-09-26)'))
+    birth_city = models.ForeignKey('cities.City', null=True, blank=True,
+        related_name='born_artist_set')
+    death_date = models.DateField(null=True, blank=True,
+        help_text=_(u'Please enter date as YEAR-MM-DD (ie. 1894-05-21)'))
+    death_city = models.ForeignKey('cities.City', null=True, blank=True,
+        related_name='dead_artist_set')
+
+    biography = models.TextField(null=True, blank=True)
+    image = models.ImageField(null=True, blank=True, upload_to='artwork_artist',
+        verbose_name=_('photo'))
+   
+    style_era = models.ForeignKey('StyleEra', null=True, blank=True)
+    domain = models.ForeignKey('Domain', null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    
+    public = models.BooleanField(verbose_name=_(u'published on the website'))
+    creation_datetime = models.DateTimeField(auto_now_add=True)
+    modification_datetime = models.DateTimeField(auto_now=True)
+
+    def __unicode__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ('name',)
+
+class NamedTreeModel(MPTTModel):
     name = models.CharField(max_length=250, null=True, blank=True)
 
     def __unicode__(self):
-        return self.name
+        return self.name or self.name_fr
     
     class Meta:
         ordering = ('name',)
+        abstract = True
 
-class CollectMethod(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('CollectMethod', null=True, blank=True, related_name='children')
+class CollectMethod(NamedTreeModel):
+    parent = TreeForeignKey('CollectMethod', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class CreationState(NamedTreeModel):
+    parent = TreeForeignKey('CreationState', null=True, blank=True, 
+        related_name='children')
 
-class CreationState(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('CreationState', null=True, blank=True, related_name='children')
+class Denomination(NamedTreeModel):
+    parent = TreeForeignKey('Denomination', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class Domain(NamedTreeModel):
+    parent = TreeForeignKey('Domain', null=True, blank=True, 
+        related_name='children')
 
-class Denomination(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('Denomination', null=True, blank=True, related_name='children')
+class InscriptionType(NamedTreeModel):
+    parent = TreeForeignKey('InscriptionType', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class GeographicalLocation(NamedTreeModel):
+    parent = TreeForeignKey('GeographicalLocation', null=True, blank=True, 
+        related_name='children')
 
-class Domain(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('Domain', null=True, blank=True, related_name='children')
+class LegalState(NamedTreeModel):
+    parent = TreeForeignKey('LegalState', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class MaterialTechnique(NamedTreeModel):
+    parent = TreeForeignKey('MaterialTechnique', null=True, blank=True, 
+        related_name='children')
 
-class InscriptionType(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('InscriptionType', null=True, blank=True, related_name='children')
+class Period(NamedTreeModel):
+    parent = TreeForeignKey('Period', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class RepresentationSource(NamedTreeModel):
+    parent = TreeForeignKey('RepresentationSource', null=True, blank=True, 
+        related_name='children')
 
-class GeographicalLocation(MPTTModel):
-    name = models.CharField(max_length=200, null=True, blank=True)
-    parent = TreeForeignKey('GeographicalLocation', null=True, blank=True, related_name='children')
+class RepresentationSubject(NamedTreeModel):
+    parent = TreeForeignKey('RepresentationSubject', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class School(NamedTreeModel):
+    parent = TreeForeignKey('School', null=True, blank=True, 
+        related_name='children')
 
-class LegalState(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('LegalState', null=True, blank=True, related_name='children')
+class StyleEra(NamedTreeModel):
+    parent = TreeForeignKey('StyleEra', null=True, blank=True, 
+        related_name='children')
 
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class MaterialTechnique(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('MaterialTechnique', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class Period(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('Period', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class RepresentationSource(MPTTModel):
-    name = models.CharField(max_length=255, null=True, blank=True)
-    parent = TreeForeignKey('RepresentationSource', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class RepresentationSubject(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('RepresentationSubject', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class School(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('School', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class StyleEra(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('StyleEra', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
-
-class UsageDestination(MPTTModel):
-    name = models.CharField(max_length=100, null=True, blank=True)
-    parent = TreeForeignKey('UsageDestination', null=True, blank=True, related_name='children')
-
-    def __unicode__(self):
-        return self.name
-    
-    class Meta:
-        ordering = ('name',)
+class UsageDestination(NamedTreeModel):
+    parent = TreeForeignKey('UsageDestination', null=True, blank=True, 
+        related_name='children')

@@ -16,7 +16,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         file_class_map = {
-            'auteur': Author, # no parent
+            'auteur': Artist, # no parent
             'collect': CollectMethod,
             'stade-creation': CreationState,
             'denomination': Denomination,
