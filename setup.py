@@ -18,8 +18,8 @@ setup(
         "Topic :: Software Development"
     ],
     requires=[
-        'django-mptt',
-        'django-orderable',
+        'django_mptt',
+        'django_orderable',
     ],
     extras_require={
         'translation': [
