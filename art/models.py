@@ -89,7 +89,7 @@ class Artwork(models.Model):
     def first_image(self):
         try:
             return self.image_set.all()[0]
-        except Image.DoesNotExist:
+        except IndexError:
             return None
 
     def __unicode__(self):
