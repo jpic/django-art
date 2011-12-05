@@ -166,6 +166,7 @@ class ArtworkAdmin(AjaxSelectAdmin):
         AudioInline,
         ImageInline,
         VideoInline,
+        CustomValueInline,
     ]
     date_hierarchy = 'creation_datetime'
     list_display = (

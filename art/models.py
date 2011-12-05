@@ -4,6 +4,7 @@ from django.db.models import signals
 
 from orderable.models import OrderableModel
 from mptt.models import MPTTModel, TreeForeignKey
+from admin_hack import enable_custom_values
 
 class Artwork(models.Model):
     # object description
@@ -213,3 +214,6 @@ class StyleEra(NamedTreeModel):
 class UsageDestination(NamedTreeModel):
     parent = TreeForeignKey('UsageDestination', null=True, blank=True, 
         related_name='children')
+
+# must be last because it calls get_model
+enable_custom_values(Artwork)
