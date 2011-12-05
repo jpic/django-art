@@ -7,17 +7,14 @@ from mptt.models import MPTTModel, TreeForeignKey
 from admin_hack import enable_custom_values
 
 class Artwork(models.Model):
-    # object description
     inventory_number = models.CharField(max_length=100, null=True, blank=True)
     old_inventory_number = models.CharField(max_length=100, null=True, blank=True)
     other_inventory_numbers = models.CharField(max_length=100, null=True, blank=True)
     
     domains = models.ManyToManyField('Domain', null=True, blank=True)
-    
     name = models.CharField(max_length=100)
     denomination = models.ForeignKey('Denomination', null=True, blank=True)
     artist = models.ForeignKey('Artist', null=True, blank=True)
-    artist_details = models.TextField(null=True, blank=True)
     school = models.ForeignKey('School', null=True, blank=True)
     previous_attributions = models.TextField(null=True, blank=True)
     period = models.ForeignKey('Period', null=True, blank=True)
