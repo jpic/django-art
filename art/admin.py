@@ -1,44 +1,159 @@
 from django.contrib import admin
 from django.conf import settings
+from django.utils.translation import ugettext as _
 from django.utils.safestring import mark_safe
+
+from ajax_select import make_ajax_form
+from ajax_select.admin import AjaxSelectAdmin
 
 from orderable.admin import OrderableStackedInline, OrderableTabularInline
 
+from admin_hack.admin import CustomValueInline
+
+from lookups import *
 from models import *
 
 class CommonMedia:
-  js = (
-    'https://ajax.googleapis.com/ajax/libs/dojo/1.6.0/dojo/dojo.xd.js',
-    settings.STATIC_URL + '/orderable/orderable.js',
-  )
-  css = {
-    'all': ( settings.STATIC_URL + '/art/editor.css',),
-  }
+  pass
+  #js = (
+    #'https://ajax.googleapis.com/ajax/libs/dojo/1.6.0/dojo/dojo.xd.js',
+    #settings.STATIC_URL + '/orderable/orderable.js',
+  #)
+  #css = {
+    #'all': ( settings.STATIC_URL + '/art/editor.css',),
+  #}
 
-class AudioInline(OrderableTabularInline):
+class AudioInline(admin.TabularInline):
     model = Audio
-class ImageInline(OrderableTabularInline):
+    extra = 0
+class ImageInline(admin.TabularInline):
     model = Image
-class VideoInline(OrderableTabularInline):
+    extra = 0
+class VideoInline(admin.TabularInline):
     model = Video
+    extra = 0
 
-class ArtworkAdmin(admin.ModelAdmin):
-    raw_id_fields = (
-        'denomination',
-        'artist',
-        'school',
-        'period',
-        'style_era',
-        'original_copy_period',
-        'representation_subject',
-        'representation_source',
-        'creation_state',
-        'creation_locations',
-        'usage',
-        'usage_period',
-        'collect_method',
-        'legal_state',
+class ArtworkInline(admin.TabularInline):
+    model = Artwork
+    fields = ('name',)
+
+class ArtworkAdmin(AjaxSelectAdmin):
+    form = make_ajax_form(Artwork, {
+        'artist': 'Artist',
+        'collect_method': 'CollectMethod',
+        'creation_state': 'CreationState',
+        'denomination': 'Denomination',
+        'domains': 'Domain',
+        'inscription_types': 'InscriptionType',
+        'creation_locations': 'GeographicalLocation',
+        'legal_state': 'LegalState',
+        'material_techniques': 'MaterialTechnique',
+        'original_copy_period': 'Period',
+        'usage_period': 'Period',
+        'representation_subject': 'RepresentationSubject',
+        'representation_source': 'RepresentationSource',
+        'school': 'School',
+        'style_era': 'StyleEra',
+        'usage': 'UsageDestination',
+    })
+
+    fieldsets = (
+        (None, {
+            'fields': (
+                (
+                    'inventory_number',
+                    'name',
+                ),
+                (
+                    'old_inventory_number',
+                    'other_inventory_numbers'
+                ),
+                (
+                    'domains',
+                    'denomination',
+                ),
+                (
+                    'artist',
+                    'school',
+                    'previous_attributions',
+                )
+            )}
+        ),
+        (_(u'Datation'), {
+            'classes': ('collapse',),
+            'fields': (
+                (
+                    'period',
+                    'vintage',
+                ),
+                'absolute_dating',
+                'absolute_dating_details',
+                'dating_laboratory',
+                'style_era',
+                'original_copy_period',
+            )}
+        ),
+        (_(u'Description'), {
+            'classes': ('collapse',),
+            'fields': (
+                'material_techniques',
+                'dimensions',
+                'inscription_types',
+                'inscriptions_details',
+                'onomastic',
+                'description',
+                'current_conservation_state',
+                'representation_subject',
+                'representation_details',
+                'representation_date',
+                'representation_source',
+            )},
+        ),
+        (_(u'Historical context'), {
+            'classes': ('collapse',),
+            'fields': (
+                'creation_state',
+                'genes',
+                'history',
+                'creation_locations',
+                'creation_locations_details',
+                'geographical_history',
+                'usage',
+                'usage_details',
+                'usage_locations',
+                'usage_period',
+                'usage_vintage',
+                'origin',
+                'collect_method',
+                'origin_details',
+                'sda_site_number',
+            )}
+        ),
+        (_(u'Legal state'), {
+            'classes': ('collapse',),
+            'fields': (
+                'legal_state',
+                'acquisition_date',
+                'previous_belonging',
+                'previous_depots',
+                'preservation_location',
+                'acquisition_intermediary',
+            )}
+        ),
+        (_(u'Additionnal informations'), {
+            'classes': ('collapse',),
+            'fields': (
+                'bibliography',
+                'exposure',
+                'comments',
+                'photograph',
+                'editor',
+                'copyright',
+                'public',
+            )},
+        )
     )
+
     filter_horizontal = (
         'domains',
         'material_techniques',
